@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Emgu.CV;
+using Emgu.CV.Structure;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -27,6 +29,17 @@ namespace misaka
 			pictureBox1.Image = bicubic;
 
 			pictureBox1.MouseWheel += PictureBox1_MouseWheel;
+
+			ProcessOriginal();
+		}
+
+		private void ProcessOriginal()
+		{
+			var temp = new Image<Rgb, byte>((Bitmap)original);
+			temp = temp.Resize(2.0, Emgu.CV.CvEnum.Inter.Cubic);
+			Image<Rgb, float> vectorSpace = new Upscaler().GetMagnetMagic(temp);
+			pictureBox1.SetVectorMap(vectorSpace);
+			original = temp.ToBitmap();
 		}
 
 		private void PictureBox1_MouseWheel(object sender, MouseEventArgs e)
