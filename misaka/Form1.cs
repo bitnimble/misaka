@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -14,32 +15,42 @@ namespace misaka
 {
 	public partial class Form1 : Form
 	{
-		Bitmap bicubic;
-		Bitmap upscaled;
-		Image original;
+		Bitmap bicubicBitmap;
+		Bitmap upscaledBitmap;
 
 		public Form1()
 		{
 			InitializeComponent();
 
-			var upscaler = new Upscaler();
-
-			original = Image.FromFile(@"..\..\..\Resources\test1.png");
-			(bicubic, upscaled) = upscaler.Upscale(original);
-			pictureBox1.Image = bicubic;
-
 			pictureBox1.MouseWheel += PictureBox1_MouseWheel;
 
-			ProcessOriginal();
+			LoadImage(@"..\..\..\Resources\test1.png");
 		}
 
-		private void ProcessOriginal()
+		private void LoadImage(string filename)
 		{
-			var temp = new Image<Rgb, byte>((Bitmap)original);
-			temp = temp.Resize(2.0, Emgu.CV.CvEnum.Inter.Cubic);
-			Image<Rgb, float> vectorSpace = new Upscaler().GetMagnetMagic(temp);
+
+			var originalBitmap = Image.FromFile(filename);
+
+			var original = new Image<Rgb, byte>((Bitmap)originalBitmap);
+			var bicubic = original.Resize(2.0, Emgu.CV.CvEnum.Inter.Cubic);
+			bicubicBitmap = bicubic.ToBitmap();
+
+			var upscaler = new Upscaler();
+
+			Stopwatch stopwatch = new Stopwatch();
+			stopwatch.Start();
+
+			Image<Rgb, float> vectorSpace = upscaler.GetMagnetMagic(bicubic);
+			var upscaled = upscaler.Upscale(bicubic, vectorSpace);
+
+			long time = stopwatch.ElapsedMilliseconds;
+			statusLabel1.Text = "Upscaling took " + time + "ms";
+
+			upscaledBitmap = upscaled.ToBitmap();
+
+			pictureBox1.Image = bicubicBitmap;
 			pictureBox1.SetVectorMap(vectorSpace);
-			original = temp.ToBitmap();
 		}
 
 		private void PictureBox1_MouseWheel(object sender, MouseEventArgs e)
@@ -51,15 +62,12 @@ namespace misaka
 
 		private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
 		{
-			pictureBox1.Image = upscaled;
+			pictureBox1.Image = bicubicBitmap;
 		}
 
 		private void pictureBox1_MouseUp(object sender, MouseEventArgs e)
 		{
-			if (!menuItem2.Checked)
-				pictureBox1.Image = bicubic;
-			else
-				pictureBox1.Image = original;
+			pictureBox1.Image = upscaledBitmap;
 		}
 
 		private void menuItem2_Click(object sender, EventArgs e)
@@ -68,11 +76,22 @@ namespace misaka
 
 			if (menuItem2.Checked)
 			{
-				pictureBox1.Image = original;
+				pictureBox1.RenderVectors = true;
 			}
 			else
 			{
-				pictureBox1.Image = bicubic;
+				pictureBox1.RenderVectors = false;
+			}
+
+			pictureBox1.Invalidate();
+		}
+
+		private void menuItem4_Click(object sender, EventArgs e)
+		{
+			OpenFileDialog ofd = new OpenFileDialog();
+			if (ofd.ShowDialog() == DialogResult.OK)
+			{
+				LoadImage(ofd.FileName);
 			}
 		}
 	}

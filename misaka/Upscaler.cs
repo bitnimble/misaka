@@ -16,15 +16,9 @@ namespace misaka
 		private int kernelSize = 10;
 		private float weightFactor = 1.0f;
 
-		public (Bitmap bicubic, Bitmap upscaled) Upscale(Image bitmap)
+		public Image<Rgb, byte> Upscale(Image<Rgb, byte> orig, Image<Rgb, float> vectorSpace)
 		{
-			var orig = new Image<Rgb, byte>((Bitmap)bitmap);
-
-			var upscaled = orig.Clone();
-			//upscaled = upscaled.Not();
-			upscaled = upscaled.Resize(2.0, Emgu.CV.CvEnum.Inter.Cubic);
-
-			return (orig.Resize(2.0, Emgu.CV.CvEnum.Inter.Cubic).ToBitmap(), upscaled.ToBitmap());
+			return orig.Clone();
 		}
 
 		public Image<Rgb, float> GetMagnetMagic(Image<Rgb, byte> input)
@@ -37,9 +31,12 @@ namespace misaka
 			float globalMax = float.MinValue;
 			float globalMin = float.MaxValue;
 
-			for (int ax = 0; ax < input.Width; ax++)
+			int inputWidth = input.Width;
+			int inputHeight = input.Height;
+
+			Parallel.For(0, inputWidth, (ax) =>
 			{
-				for (int ay = 0; ay < input.Height; ay++)
+				for (int ay = 0; ay < inputHeight; ay++)
 				{
 					int srcPixel = data[ay, ax, 0] + data[ay, ax, 1] + data[ay, ax, 2];
 
@@ -61,7 +58,7 @@ namespace misaka
 							int nx = ax + x;
 							int ny = ay + y;
 
-							if (nx < 0 || nx >= input.Width || ny < 0 || ny >= input.Height)
+							if (nx < 0 || nx >= inputWidth || ny < 0 || ny >= inputHeight)
 								continue;
 
 							int targetPix = data[ny, nx, 0] + data[ny, nx, 1] + data[ny, nx, 2];
@@ -98,7 +95,7 @@ namespace misaka
 					if (magnitude < globalMin)
 						globalMin = magnitude;
 				}
-			}
+			});
 
 			resultData[0, 0, 2] = (float)(Math.Sqrt(globalMax));
 			resultData[0, 1, 2] = (float)(Math.Sqrt(globalMin));

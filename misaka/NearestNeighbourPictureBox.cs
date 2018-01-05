@@ -25,8 +25,12 @@ namespace misaka
 
 		private Image<Rgb, float> vectorMap;
 
-		private Pen whitePen = new Pen(Color.White, 2);
-		private Pen blackPen = new Pen(Color.Black, 2);
+		private Pen whitePen = new Pen(Color.White, 1);
+		private Pen blackPen = new Pen(Color.Black, 1);
+		private Brush whiteBrush = new SolidBrush(Color.White);
+		private Brush blackBrush = new SolidBrush(Color.Black);
+
+		public bool RenderVectors = false;
 
 		public NearestNeighbourPictureBox()
 		{
@@ -104,9 +108,11 @@ namespace misaka
 			pe.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
 
 			float zoom = zoomLevels[zoomLevel];
+			float centerTransX = (Width / 2) - (Image.Width * zoom / 2);
+			float centerTransY = (Height / 2) - (Image.Height * zoom / 2);
 
 			if (Image != null)
-				pe.Graphics.TranslateTransform(((Width / 2) - (Image.Width * zoom / 2)), (Height / 2) - (Image.Height * zoom / 2));
+				pe.Graphics.TranslateTransform(centerTransX, centerTransY);
 			pe.Graphics.TranslateTransform(x, y);
 			pe.Graphics.ScaleTransform(zoom, zoom);
 
@@ -115,10 +121,10 @@ namespace misaka
 			pe.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 			pe.Graphics.ResetTransform();
 			if (Image != null)
-				pe.Graphics.TranslateTransform(((Width / 2) - (Image.Width * zoom / 2)), (Height / 2) - (Image.Height * zoom / 2));
+				pe.Graphics.TranslateTransform(centerTransX, centerTransY);
 			pe.Graphics.TranslateTransform(x, y);
 
-			if (vectorMap != null)
+			if (vectorMap != null && RenderVectors)
 			{
 				float[,,] vectorData = vectorMap.Data;
 				float max = vectorData[0, 0, 2];
@@ -130,30 +136,33 @@ namespace misaka
 				//Arrow is max 0.95 of the width/height of the pixel
 				float maxLength = 0.95f * zoom;
 
-				for (int x = 0; x < vectorMap.Width; x++)
+				int vectorWidth = vectorMap.Width;
+				int vectorHeight = vectorMap.Height;
+
+				for (int pixelX = Math.Max((int)((-x - centerTransX) / zoom), 0); pixelX < Math.Min((int)((Width - x - centerTransX) / zoom), vectorWidth); pixelX++)
 				{
-					for (int y = 0; y < vectorMap.Height; y++)
+					for (int pixelY = Math.Max((int)((-y - centerTransY) / zoom), 0); pixelY < Math.Min((int)((Height - y - centerTransY) / zoom), vectorHeight); pixelY++)
 					{
-						float vx = vectorData[y, x, 0];
-						float vy = vectorData[y, x, 1];
+						float vx = vectorData[pixelY, pixelX, 0];
+						float vy = vectorData[pixelY, pixelX, 1];
 
 						float magnitudeMult = maxLength / max;
 
 						float nvx = vx * magnitudeMult;
 						float nvy = vy * magnitudeMult;
 
-						float startX = (x * zoom) + cOffsetX - nvx / 2;
-						float startY = (y * zoom) + cOffsetY - nvy / 2;
+						float startX = (pixelX * zoom) + cOffsetX - nvx / 2;
+						float startY = (pixelY * zoom) + cOffsetY - nvy / 2;
 
 						float destX = startX + nvx / 2;
 						float destY = startY + nvy / 2;
 
-						bool useWhite = vectorData[y, x, 2] == 0 ? false : true;
+						bool useWhite = vectorData[pixelY, pixelX, 2] == 0 ? false : true;
 						Pen pen = useWhite ? whitePen : blackPen;
-						Brush brush = useWhite ? Brushes.White : Brushes.Black;
+						Brush brush = useWhite ? whiteBrush : blackBrush;
 						pe.Graphics.DrawLine(pen, startX, startY, destX, destY);
 						pe.Graphics.DrawRectangle(Pens.Blue, startX - 1, startY + 1, 1, 1);
-						pe.Graphics.DrawRectangle(Pens.Red, x * zoom, y * zoom, zoom, zoom);
+						//pe.Graphics.DrawRectangle(Pens.Red, pixelX * zoom, pixelY * zoom, zoom, zoom);
 					}
 				}
 			}
